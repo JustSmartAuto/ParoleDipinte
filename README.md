@@ -281,7 +281,7 @@ After building, the fat jar is located in `build/libs/`:
 
 ## 许可证 | License
 
-Copyright © 2026 Honda. All rights reserved. 版权所有。
+Copyright © 2026 JustSmartAuto. All rights reserved. 版权所有。
 
 ## 技术支持 | Support
 
