@@ -1,0 +1,176 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.honda'
+version = '1.0.59'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+repositories {
+    mavenCentral()
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+dependencies {
+    // FlatLaf - 现代Swing外观
+    implementation 'com.formdev:flatlaf:3.5.4'
+    
+    // Gson - JSON处理
+    implementation 'com.google.code.gson:gson:2.10.1'
+    
+    // H2 Database - 嵌入式数据库
+    implementation 'com.h2database:h2:2.2.224'
+    
+    // JavaCV - OpenCV Java封装
+    // 核心库
+    implementation 'org.bytedeco:javacv:1.5.11'
+    implementation 'org.bytedeco:javacpp:1.5.11'
+    
+    // OpenCV 库
+    implementation 'org.bytedeco:opencv:4.10.0-1.5.11'
+    
+    // OpenCV native libraries for macOS ARM64
+    implementation 'org.bytedeco:opencv:4.10.0-1.5.11:macosx-arm64'
+    
+    // OpenCV native libraries for macOS x86_64
+    implementation 'org.bytedeco:opencv:4.10.0-1.5.11:macosx-x86_64'
+    
+    // OpenCV native libraries for Windows x86_64
+    implementation 'org.bytedeco:opencv:4.10.0-1.5.11:windows-x86_64'
+    
+    // OpenCV native libraries for Linux x86_64
+    implementation 'org.bytedeco:opencv:4.10.0-1.5.11:linux-x86_64'
+    
+    // OpenBLAS native libraries (required by OpenCV)
+    implementation 'org.bytedeco:openblas:0.3.28-1.5.11'
+    implementation 'org.bytedeco:openblas:0.3.28-1.5.11:macosx-arm64'
+    implementation 'org.bytedeco:openblas:0.3.28-1.5.11:macosx-x86_64'
+    implementation 'org.bytedeco:openblas:0.3.28-1.5.11:windows-x86_64'
+    implementation 'org.bytedeco:openblas:0.3.28-1.5.11:linux-x86_64'
+    
+    // LuaJ - Lua脚本支持
+    implementation 'org.luaj:luaj-jse:3.0.1'
+    
+    // Paho MQTT - MQTT客户端
+    implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
+    
+    // RSyntaxTextArea - 代码编辑器组件
+    implementation 'com.fifesoft:rsyntaxtextarea:3.3.4'
+    
+    // Honda PaddleOCR Lib - 飞桨OCR识别库
+    implementation files('libs/honda-paddleocr-lib-1.0.0-20260409085535-lib.jar')
+}
+
+// 获取当前时间戳
+def getTimestamp() {
+    return new Date().format('yyyyMMddHHmmss')
+}
+
+// 复制模型文件到资源目录
+task copyModels(type: Copy) {
+    description = '复制ONNX模型文件到资源目录'
+    group = 'build'
+    
+    from('models') {
+        include 'det.onnx'
+        include 'rec.onnx'
+        include 'dict.txt'
+    }
+    into 'src/main/resources/models'
+}
+
+// 确保processResources在copyModels之后执行
+processResources {
+    dependsOn copyModels
+}
+
+// FatJar任务
+jar {
+    archiveBaseName = 'ParoleDipinte'
+    archiveVersion = "${version}-${getTimestamp()}"
+    
+    manifest {
+        attributes(
+            'Main-Class': 'com.honda.paroledipinte.ParoleDipinteApp',
+            'Implementation-Title': 'ParoleDipinte',
+            'Implementation-Version': version,
+            'Build-Timestamp': getTimestamp()
+        )
+    }
+    
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    
+    // 包含模型文件
+    from('models') {
+        include 'det.onnx'
+        include 'rec.onnx'
+        include 'dict.txt'
+        into 'models'
+    }
+    
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    
+    dependsOn copyModels
+}
+
+// 复制依赖到libs目录任务
+task copyDependencies(type: Copy) {
+    description = '复制所有依赖到libs目录'
+    group = 'build'
+    
+    from configurations.runtimeClasspath
+    into 'libs'
+}
+
+// 创建完整分发包
+task dist(type: Zip) {
+    description = '创建完整分发包'
+    group = 'build'
+    
+    dependsOn jar
+    
+    archiveBaseName = 'ParoleDipinte'
+    archiveVersion = "${version}-${getTimestamp()}"
+    
+    from('build/libs') {
+        include '*.jar'
+    }
+    
+    from('.') {
+        include 'README.md'
+        include 'CHANGELOG.md'
+        include 'PROGRAMMING.md'
+        include 'elephant.png'
+    }
+    
+    from('fonts') {
+        into 'fonts'
+    }
+}
+
+// 清理任务
+clean {
+    delete 'build'
+}
+
+// 编译任务配置
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:unchecked', '-Xlint:deprecation']
+}
+
+// 测试配置
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
